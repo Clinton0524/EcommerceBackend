@@ -5,18 +5,12 @@ const { protect } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-const generateToken = (res, userId) => {
-  const token = jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: "1h" });
-
-  res.cookie("jwt", token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    maxAge: 3600000, // 1 hour
-  });
+// Helper to generate token
+const generateToken = (userId) => {
+  return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: "1h" });
 };
 
-// Register
+// ==================== REGISTER ====================
 router.post("/register", async (req, res) => {
   const { name, email, password, role } = req.body;
 
@@ -27,46 +21,68 @@ router.post("/register", async (req, res) => {
     user = new User({ name, email, password, role });
     await user.save();
 
-    generateToken(res, user._id);
-    res.status(201).json({ message: "User registered successfully", user });
+    const token = generateToken(user._id);
+
+    res.status(201).json({
+      message: "User registered successfully",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+      token,
+    });
   } catch (error) {
+    console.error("Register Error:", error.message);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-// Login
-// Login Route (Backend)
+// ==================== LOGIN ====================
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
   try {
-      const user = await User.findOne({ email });
-      if (!user) return res.status(400).json({ message: "Invalid credentials" });
+    const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
-      const isMatch = await user.matchPassword(password);
-      if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
-      // ✅ Generate Token
-      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    const token = generateToken(user._id);
 
-      // ✅ Send token in response
-      res.status(200).json({ message: "Logged in successfully", user, token });
+    res.status(200).json({
+      message: "Logged in successfully",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+      token,
+    });
   } catch (error) {
-      res.status(500).json({ message: "Server error" });
+    console.error("Login Error:", error.message);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
-
-// Logout
+// ==================== LOGOUT ====================
 router.post("/logout", (req, res) => {
   res.cookie("jwt", "", { maxAge: 1 });
   res.json({ message: "Logged out successfully" });
 });
 
-// Get User Profile (Protected)
+// ==================== GET PROFILE ====================
 router.get("/profile", protect, async (req, res) => {
-  const user = await User.findById(req.user.id).select("-password");
-  res.json(user);
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+    res.json(user);
+  } catch (error) {
+    console.error("Profile Error:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
 module.exports = router;
