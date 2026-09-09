@@ -1,95 +1,249 @@
 const express = require("express");
+const mongoose = require("mongoose");
+
 const Banner = require("../models/Banner");
+const { protect, authorize } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-// ✅ Get all banners
+// =====================================================
+// GET ALL BANNERS
+// Public - anyone can view banners
+// =====================================================
 router.get("/", async (req, res) => {
   try {
-    const banners = await Banner.find();
-    res.json({ success: true, count: banners.length, banners });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    const banners = await Banner.find().sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: banners.length,
+      banners,
+    });
+  } catch (error) {
+    console.error("Get Banners Error:", error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch banners",
+    });
   }
 });
 
-// ✅ Get a single banner by ID
+// =====================================================
+// GET SINGLE BANNER
+// Public - anyone can view a banner
+// =====================================================
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Check MongoDB ObjectId
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: "Invalid banner ID" });
+      return res.status(400).json({
+        success: false,
+        message: "Invalid banner ID",
+      });
     }
 
     const banner = await Banner.findById(id);
+
     if (!banner) {
-      return res.status(404).json({ success: false, message: "Banner not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Banner not found",
+      });
     }
 
-    res.json({ success: true, banner });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(200).json({
+      success: true,
+      banner,
+    });
+  } catch (error) {
+    console.error("Get Banner Error:", error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch banner",
+    });
   }
 });
 
-// ✅ Create a new banner
-router.post("/", async (req, res) => {
-  try {
-    const { title, imageUrl, description } = req.body;
+// =====================================================
+// CREATE BANNER
+// Admin only
+// =====================================================
+router.post(
+  "/",
+  protect,
+  authorize("admin"),
+  async (req, res) => {
+    try {
+      const { title, imageUrl, description } = req.body;
 
-    if (!title || !imageUrl) {
-      return res.status(400).json({ success: false, message: "Title and imageUrl are required" });
+      // Validate required fields
+      if (!title || !imageUrl) {
+        return res.status(400).json({
+          success: false,
+          message: "Title and imageUrl are required",
+        });
+      }
+
+      const newBanner = new Banner({
+        title: title.trim(),
+        imageUrl: imageUrl.trim(),
+        description: description?.trim() || "",
+      });
+
+      const savedBanner = await newBanner.save();
+
+      res.status(201).json({
+        success: true,
+        message: "Banner created successfully",
+        banner: savedBanner,
+      });
+    } catch (error) {
+      console.error("Create Banner Error:", error.message);
+
+      res.status(500).json({
+        success: false,
+        message: "Failed to create banner",
+      });
     }
-
-    const newBanner = new Banner({ title, imageUrl, description });
-    await newBanner.save();
-
-    res.status(201).json({ success: true, banner: newBanner });
-  } catch (err) {
-    res.status(400).json({ success: false, error: err.message });
   }
-});
+);
 
-// ✅ Update a banner
-router.put("/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
+// =====================================================
+// UPDATE BANNER
+// Admin only
+// =====================================================
+router.put(
+  "/:id",
+  protect,
+  authorize("admin"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { title, imageUrl, description } = req.body;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: "Invalid banner ID" });
+      // Check MongoDB ObjectId
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid banner ID",
+        });
+      }
+
+      // Build update object
+      const updateData = {};
+
+      if (title !== undefined) {
+        if (!title.trim()) {
+          return res.status(400).json({
+            success: false,
+            message: "Title cannot be empty",
+          });
+        }
+
+        updateData.title = title.trim();
+      }
+
+      if (imageUrl !== undefined) {
+        if (!imageUrl.trim()) {
+          return res.status(400).json({
+            success: false,
+            message: "Image URL cannot be empty",
+          });
+        }
+
+        updateData.imageUrl = imageUrl.trim();
+      }
+
+      if (description !== undefined) {
+        updateData.description = description.trim();
+      }
+
+      // Don't allow an empty update
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "No valid fields provided for update",
+        });
+      }
+
+      const updatedBanner = await Banner.findByIdAndUpdate(
+        id,
+        updateData,
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
+
+      if (!updatedBanner) {
+        return res.status(404).json({
+          success: false,
+          message: "Banner not found",
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "Banner updated successfully",
+        banner: updatedBanner,
+      });
+    } catch (error) {
+      console.error("Update Banner Error:", error.message);
+
+      res.status(500).json({
+        success: false,
+        message: "Failed to update banner",
+      });
     }
-
-    const updatedBanner = await Banner.findByIdAndUpdate(id, req.body, { new: true });
-
-    if (!updatedBanner) {
-      return res.status(404).json({ success: false, message: "Banner not found" });
-    }
-
-    res.json({ success: true, banner: updatedBanner });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
   }
-});
+);
 
-// ✅ Delete a banner
-router.delete("/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
+// =====================================================
+// DELETE BANNER
+// Admin only
+// =====================================================
+router.delete(
+  "/:id",
+  protect,
+  authorize("admin"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: "Invalid banner ID" });
+      // Check MongoDB ObjectId
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid banner ID",
+        });
+      }
+
+      const deletedBanner = await Banner.findByIdAndDelete(id);
+
+      if (!deletedBanner) {
+        return res.status(404).json({
+          success: false,
+          message: "Banner not found",
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "Banner deleted successfully",
+      });
+    } catch (error) {
+      console.error("Delete Banner Error:", error.message);
+
+      res.status(500).json({
+        success: false,
+        message: "Failed to delete banner",
+      });
     }
-
-    const deletedBanner = await Banner.findByIdAndDelete(id);
-    if (!deletedBanner) {
-      return res.status(404).json({ success: false, message: "Banner not found" });
-    }
-
-    res.json({ success: true, message: "Banner deleted successfully" });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
   }
-});
+);
 
 module.exports = router;

@@ -1,15 +1,66 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
-const productSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  price: { type: Number, required: true },
-  oldprice:{type:Number},
-  category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true }, // Link to Category
-  description: { type: String },
-  stock: { type: Number, default: 0 },
-  imageUrl: { type: String },
-  weight: {type:String},
-  isExclusive: { type: Boolean, default: false } // Add this field
-});
+const productSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
-module.exports = mongoose.model('Product', productSchema);
+    price: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    oldprice: {
+      type: Number,
+      min: 0,
+    },
+
+    category: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+      required: true,
+    },
+
+    description: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    stock: {
+      type: Number,
+      default: 0,
+      min: 0,
+      validate: {
+        validator: Number.isInteger,
+        message: "Stock must be a whole number",
+      },
+    },
+
+    imageUrl: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    weight: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    isExclusive: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+module.exports = mongoose.model("Product", productSchema);
