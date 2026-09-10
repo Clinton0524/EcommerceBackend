@@ -11,9 +11,21 @@ const ORDER_STATUSES = [
   "Cancelled",
 ];
 
-const PAYMENT_METHODS = ["COD", "UPI", "Card"];
+const PAYMENT_METHODS = [
+  "COD",
+  "UPI",
+  "Card",
+];
 
-const PAYMENT_STATUSES = ["Pending", "Paid", "Failed"];
+const PAYMENT_STATUSES = [
+  "Pending",
+  "Paid",
+  "Failed",
+];
+
+// =====================================================
+// ORDER ITEM
+// =====================================================
 
 const orderItemSchema = new mongoose.Schema(
   {
@@ -27,13 +39,9 @@ const orderItemSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: 1,
-      validate: {
-        validator: Number.isInteger,
-        message: "Quantity must be a whole number",
-      },
+      integer: true,
     },
 
-    // Price at the time the order was placed
     price: {
       type: Number,
       required: true,
@@ -44,6 +52,10 @@ const orderItemSchema = new mongoose.Schema(
     _id: false,
   }
 );
+
+// =====================================================
+// STATUS HISTORY
+// =====================================================
 
 const statusHistorySchema = new mongoose.Schema(
   {
@@ -63,6 +75,51 @@ const statusHistorySchema = new mongoose.Schema(
   }
 );
 
+// =====================================================
+// SHIPPING ADDRESS
+// =====================================================
+
+const shippingAddressSchema = new mongoose.Schema(
+  {
+    fullName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    phone: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    addressLine: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    city: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    pincode: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+  },
+  {
+    _id: false,
+  }
+);
+
+// =====================================================
+// ORDER
+// =====================================================
+
 const orderSchema = new mongoose.Schema(
   {
     userId: {
@@ -75,9 +132,27 @@ const orderSchema = new mongoose.Schema(
       type: [orderItemSchema],
       required: true,
       validate: {
-        validator: (items) => items.length > 0,
+        validator: (items) =>
+          Array.isArray(items) && items.length > 0,
         message: "Order must contain at least one item",
       },
+    },
+
+    shippingAddress: {
+      type: shippingAddressSchema,
+      required: true,
+    },
+
+    subtotal: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    tax: {
+      type: Number,
+      required: true,
+      min: 0,
     },
 
     totalAmount: {
@@ -86,20 +161,17 @@ const orderSchema = new mongoose.Schema(
       min: 0,
     },
 
-    // Order status
     status: {
       type: String,
       enum: ORDER_STATUSES,
       default: "Pending",
     },
 
-    // History of every status change
     statusHistory: {
       type: [statusHistorySchema],
       default: [],
     },
 
-    // Payment information
     paymentMethod: {
       type: String,
       enum: PAYMENT_METHODS,
@@ -112,16 +184,10 @@ const orderSchema = new mongoose.Schema(
       default: "Pending",
     },
 
-    // For mock payment now and real payment gateway later
     paymentId: {
       type: String,
       trim: true,
       default: null,
-    },
-
-    createdAt: {
-      type: Date,
-      default: Date.now,
     },
   },
   {
@@ -129,7 +195,12 @@ const orderSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("Order", orderSchema);
+const Order = mongoose.model(
+  "Order",
+  orderSchema
+);
 
-// Export statuses so routes can reuse the same list
-module.exports.ORDER_STATUSES = ORDER_STATUSES;
+module.exports = {
+  Order,
+  ORDER_STATUSES,
+};

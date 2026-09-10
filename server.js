@@ -45,6 +45,8 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
   "http://localhost:5173",
   "http://localhost:3000",
+  "http://localhost:3001",
+  "http://192.168.8.102:3001",
 ].filter(Boolean);
 
 app.use(
@@ -99,9 +101,8 @@ app.use("/api", apiLimiter);
 
 // Stricter limiter for authentication routes
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-
-  max: 10,
+  windowMs: 15 * 60 * 1000,
+  max: 100,
 
   standardHeaders: true,
   legacyHeaders: false,
@@ -112,7 +113,6 @@ const authLimiter = rateLimit({
       "Too many login or registration attempts. Please try again later.",
   },
 });
-
 // =====================================================
 // HEALTH CHECK
 // =====================================================
