@@ -11,17 +11,9 @@ const ORDER_STATUSES = [
   "Cancelled",
 ];
 
-const PAYMENT_METHODS = [
-  "COD",
-  "UPI",
-  "Card",
-];
+const PAYMENT_METHODS = ["COD", "UPI", "Card"];
 
-const PAYMENT_STATUSES = [
-  "Pending",
-  "Paid",
-  "Failed",
-];
+const PAYMENT_STATUSES = ["Pending", "Paid", "Failed"];
 
 // =====================================================
 // ORDER ITEM
@@ -50,7 +42,7 @@ const orderItemSchema = new mongoose.Schema(
   },
   {
     _id: false,
-  }
+  },
 );
 
 // =====================================================
@@ -72,7 +64,7 @@ const statusHistorySchema = new mongoose.Schema(
   },
   {
     _id: false,
-  }
+  },
 );
 
 // =====================================================
@@ -113,7 +105,7 @@ const shippingAddressSchema = new mongoose.Schema(
   },
   {
     _id: false,
-  }
+  },
 );
 
 // =====================================================
@@ -132,8 +124,7 @@ const orderSchema = new mongoose.Schema(
       type: [orderItemSchema],
       required: true,
       validate: {
-        validator: (items) =>
-          Array.isArray(items) && items.length > 0,
+        validator: (items) => Array.isArray(items) && items.length > 0,
         message: "Order must contain at least one item",
       },
     },
@@ -146,6 +137,17 @@ const orderSchema = new mongoose.Schema(
     subtotal: {
       type: Number,
       required: true,
+      min: 0,
+    },
+    promoCode: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+
+    promoDiscount: {
+      type: Number,
+      default: 0,
       min: 0,
     },
 
@@ -192,13 +194,10 @@ const orderSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
-const Order = mongoose.model(
-  "Order",
-  orderSchema
-);
+const Order = mongoose.model("Order", orderSchema);
 
 module.exports = {
   Order,

@@ -22,7 +22,7 @@ app.use(helmet());
 app.use(
   express.json({
     limit: "1mb",
-  })
+  }),
 );
 
 // Parse cookies
@@ -62,20 +62,15 @@ app.use(
         return callback(null, true);
       }
 
-      return callback(
-        new Error("Not allowed by CORS")
-      );
+      return callback(new Error("Not allowed by CORS"));
     },
 
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-    ],
+    allowedHeaders: ["Content-Type", "Authorization"],
 
     credentials: true,
-  })
+  }),
 );
 
 // =====================================================
@@ -109,8 +104,7 @@ const authLimiter = rateLimit({
 
   message: {
     success: false,
-    message:
-      "Too many login or registration attempts. Please try again later.",
+    message: "Too many login or registration attempts. Please try again later.",
   },
 });
 // =====================================================
@@ -131,25 +125,18 @@ app.get("/", (req, res) => {
 const connectDB = async () => {
   try {
     if (!process.env.MONGO_URI) {
-      throw new Error(
-        "MONGO_URI is missing from environment variables"
-      );
+      throw new Error("MONGO_URI is missing from environment variables");
     }
 
     if (!process.env.JWT_SECRET) {
-      throw new Error(
-        "JWT_SECRET is missing from environment variables"
-      );
+      throw new Error("JWT_SECRET is missing from environment variables");
     }
 
     await mongoose.connect(process.env.MONGO_URI);
 
     console.log("MongoDB Connected");
   } catch (error) {
-    console.error(
-      "MongoDB Connection Error:",
-      error.message
-    );
+    console.error("MongoDB Connection Error:", error.message);
 
     process.exit(1);
   }
@@ -165,6 +152,7 @@ const bannerRoutes = require("./routes/bannerRoutes");
 const cartRoutes = require("./routes/cartRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const authRoutes = require("./routes/authRoutes");
+const promoCodeRoutes = require("./routes/promoCodeRoutes");
 
 app.use("/api/categories", categoryRoutes);
 
@@ -175,6 +163,7 @@ app.use("/api/banners", bannerRoutes);
 app.use("/api/cart", cartRoutes);
 
 app.use("/api/orders", orderRoutes);
+app.use("/api/promo-codes", promoCodeRoutes);
 
 // Authentication routes get stricter rate limiting
 app.use("/api/auth", authLimiter, authRoutes);
@@ -183,18 +172,12 @@ app.use("/api/auth", authLimiter, authRoutes);
 // PROTECTED ADMIN TEST ROUTE
 // =====================================================
 
-app.get(
-  "/api/admin",
-  protect,
-  authorize("admin"),
-  (req, res) => {
-    res.status(200).json({
-      success: true,
-      message:
-        "Welcome Admin! This is a protected route.",
-    });
-  }
-);
+app.get("/api/admin", protect, authorize("admin"), (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Welcome Admin! This is a protected route.",
+  });
+});
 
 // =====================================================
 // 404 HANDLER

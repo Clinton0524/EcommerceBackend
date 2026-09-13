@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 
 const { Order, ORDER_STATUSES } = require("../models/Order");
 const Product = require("../models/Product");
+const PromoCode = require("../models/PromoCode");
 const { protect, authorize } = require("../middleware/authMiddleware");
 
 const router = express.Router();
@@ -21,6 +22,7 @@ router.post("/checkout", protect, async (req, res) => {
       shippingAddress,
       paymentMethod = "COD",
       paymentId = null,
+      promoCode = null,
     } = req.body;
 
     // -------------------------------------------------
@@ -138,11 +140,110 @@ router.post("/checkout", protect, async (req, res) => {
     // CALCULATE TAX
     // -------------------------------------------------
 
+    // -------------------------------------------------
+    // CALCULATE SUBTOTAL
+    // -------------------------------------------------
+
     subtotal = Number(subtotal.toFixed(2));
 
-    const tax = Number((subtotal * 0.05).toFixed(2));
+    // -------------------------------------------------
+    // PROMO CODE
+    // -------------------------------------------------
 
-    const totalAmount = Number((subtotal + tax).toFixed(2));
+    let appliedPromoCode = null;
+    let promoDiscount = 0;
+
+    if (promoCode) {
+      const normalizedPromoCode = promoCode.toUpperCase().trim();
+
+      const promo = await PromoCode.findOne({
+        code: normalizedPromoCode,
+      });
+
+      if (!promo) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid promo code",
+        });
+      }
+
+      // Check active
+      if (!promo.isActive) {
+        return res.status(400).json({
+          success: false,
+          message: "This promo code is inactive",
+        });
+      }
+
+      // Check expiry
+      if (new Date() > new Date(promo.expiryDate)) {
+        return res.status(400).json({
+          success: false,
+          message: "This promo code has expired",
+        });
+      }
+
+      // Check usage limit
+      if (promo.usageLimit !== null && promo.usedCount >= promo.usageLimit) {
+        return res.status(400).json({
+          success: false,
+          message: "This promo code usage limit has been reached",
+        });
+      }
+
+      // Check minimum order
+      if (subtotal < Number(promo.minimumOrder)) {
+        return res.status(400).json({
+          success: false,
+          message: `Minimum order amount is ₹${promo.minimumOrder}`,
+        });
+      }
+
+      // Percentage discount
+      if (promo.discountType === "percentage") {
+        promoDiscount = (subtotal * Number(promo.discountValue)) / 100;
+
+        // Maximum discount
+        if (
+          promo.maximumDiscount !== null &&
+          promoDiscount > Number(promo.maximumDiscount)
+        ) {
+          promoDiscount = Number(promo.maximumDiscount);
+        }
+      }
+
+      // Fixed discount
+      if (promo.discountType === "fixed") {
+        promoDiscount = Number(promo.discountValue);
+      }
+
+      // Discount cannot exceed subtotal
+      if (promoDiscount > subtotal) {
+        promoDiscount = subtotal;
+      }
+
+      promoDiscount = Number(promoDiscount.toFixed(2));
+
+      appliedPromoCode = promo.code;
+    }
+
+    // -------------------------------------------------
+    // DISCOUNTED SUBTOTAL
+    // -------------------------------------------------
+
+    const discountedSubtotal = Number((subtotal - promoDiscount).toFixed(2));
+
+    // -------------------------------------------------
+    // CALCULATE TAX AFTER PROMO DISCOUNT
+    // -------------------------------------------------
+
+    const tax = Number((discountedSubtotal * 0.05).toFixed(2));
+
+    // -------------------------------------------------
+    // FINAL AMOUNT CUSTOMER PAYS
+    // -------------------------------------------------
+
+    const totalAmount = Number((discountedSubtotal + tax).toFixed(2));
 
     // -------------------------------------------------
     // REDUCE STOCK
@@ -222,6 +323,8 @@ router.post("/checkout", protect, async (req, res) => {
       },
 
       subtotal,
+      promoCode: appliedPromoCode,
+      promoDiscount,
       tax,
       totalAmount,
 
@@ -238,6 +341,23 @@ router.post("/checkout", protect, async (req, res) => {
       paymentStatus,
       paymentId: paymentMethod === "COD" ? null : paymentId,
     });
+
+    // -------------------------------------------------
+    // INCREMENT PROMO USAGE
+    // -------------------------------------------------
+
+    if (appliedPromoCode) {
+      await PromoCode.findOneAndUpdate(
+        {
+          code: appliedPromoCode,
+        },
+        {
+          $inc: {
+            usedCount: 1,
+          },
+        },
+      );
+    }
 
     // -------------------------------------------------
     // POPULATE PRODUCTS

@@ -207,6 +207,38 @@ router.get("/exclusive", async (req, res) => {
   }
 });
 
+
+router.get("/offers", async (req, res) => {
+  try {
+    const products = await Product.find({
+      oldPrice: {
+        $exists: true,
+        $ne: null,
+        $gt: 0,
+      },
+      $expr: {
+        $gt: ["$oldPrice", "$price"],
+      },
+    })
+      .populate("category")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: products.length,
+      products,
+    });
+  } catch (error) {
+    console.error("Get Offer Products Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch offer products",
+    });
+  }
+});
+
+
 // =====================================================
 // GET SINGLE PRODUCT
 // Public
@@ -262,7 +294,7 @@ router.post(
       const {
         name,
         price,
-        oldprice,
+        oldPrice,
         category,
         description,
         stock,
@@ -334,14 +366,14 @@ router.post(
       // Validate old price if provided
       // -------------------------------------------------
 
-      let numericOldPrice;
+      let numericoldPrice;
 
-      if (oldprice !== undefined && oldprice !== null && oldprice !== "") {
-        numericOldPrice = Number(oldprice);
+      if (oldPrice !== undefined && oldPrice !== null && oldPrice !== "") {
+        numericoldPrice = Number(oldPrice);
 
         if (
-          !Number.isFinite(numericOldPrice) ||
-          numericOldPrice < 0
+          !Number.isFinite(numericoldPrice) ||
+          numericoldPrice < 0
         ) {
           return res.status(400).json({
             success: false,
@@ -377,7 +409,7 @@ router.post(
       const newProduct = new Product({
         name: name.trim(),
         price: numericPrice,
-        oldprice: numericOldPrice,
+        oldPrice: numericoldPrice,
         category,
         description: description?.trim() || "",
         stock: numericStock,
@@ -443,7 +475,7 @@ router.put(
       const {
         name,
         price,
-        oldprice,
+        oldPrice,
         category,
         description,
         stock,
@@ -493,15 +525,15 @@ router.put(
       // Old price
       // -------------------------------------------------
 
-      if (oldprice !== undefined) {
-        if (oldprice === null || oldprice === "") {
-          updateData.oldprice = undefined;
+      if (oldPrice !== undefined) {
+        if (oldPrice === null || oldPrice === "") {
+          updateData.oldPrice = undefined;
         } else {
-          const numericOldPrice = Number(oldprice);
+          const numericoldPrice = Number(oldPrice);
 
           if (
-            !Number.isFinite(numericOldPrice) ||
-            numericOldPrice < 0
+            !Number.isFinite(numericoldPrice) ||
+            numericoldPrice < 0
           ) {
             return res.status(400).json({
               success: false,
@@ -509,7 +541,7 @@ router.put(
             });
           }
 
-          updateData.oldprice = numericOldPrice;
+          updateData.oldPrice = numericoldPrice;
         }
       }
 
