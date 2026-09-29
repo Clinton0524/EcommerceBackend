@@ -49,7 +49,8 @@ const allowedOrigins = [
   "http://192.168.8.102:3001",
   "http://192.168.8.102:3000",
   "https://glistening-platypus-4c4f46.netlify.app",
-   "http://192.168.137.1:3000"
+  "http://192.168.137.1:3000",
+  "https://darling-quokka-45be42.netlify.app",
 ].filter(Boolean);
 
 app.use(
